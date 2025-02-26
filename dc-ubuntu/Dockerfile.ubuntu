@@ -1,0 +1,107 @@
+
+#FROM public.ecr.aws/docker/library/docker:latest # for Docker Outside of Docker?
+#FROM public.ecr.aws/docker/library/docker:dind # for DIND
+# FROM ubuntu:latest
+FROM ubuntu:24.04
+# FROM ubuntu:23.10
+
+LABEL MAINTAINER kamil.adamiec@gmail.com
+
+# # Arg must be in a stage which will use them
+ARG USERNAME=vscode
+ARG USER_UID=1100
+ARG USER_GID=$USER_UID
+ARG HOST_DOCKER_GID=995
+ARG VERSION_TERRAFORM=1.9.3
+ARG VERSION_AWS_ECR_HELPER=0.7.1
+ARG VERSION_K9S=0.40.5
+ARG VERSION_GOPASS=1.15.15
+ARG VERSION_NEOVIM=0.10.4
+ARG VERSION_FZF=0.60.2
+ARG TMP_BIN=/tmp/bin
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Europe/Warsaw
+ENV LANG=en_US.UTF-8  
+ENV LANGUAGE=en_US:en  
+ENV LC_ALL=en_US.UTF-8  
+ENV PATH=$PATH:/home/$USERNAME/.local/bin
+
+# TODO for Corpotate Network with SSL inspection - get certificate-chain and install them locally
+# COPY certs/* /usr/local/share/ca-certificates/
+# RUN mkdir -p /usr/local/share/ca-certificates/
+# RUN apt -o "Acquire::https::Verify-Peer=false" update 
+# RUN apt -o "Acquire::https::Verify-Peer=false" install -y openssl ca-certificates && update-ca-certificates
+# RUN openssl s_client -connect google.com:443 -showcerts > /tmp/certs.txt && cat /tmp/certs.txt | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /usr/local/share/ca-certificates/custom.pem
+
+RUN apt update && apt upgrade -y
+RUN apt install -y ca-certificates && update-ca-certificates
+RUN apt install -y tzdata bash zsh stow make sudo screen tmux git rsync zip unzip p7zip-full pigz jq git groff curl wget vim gpg gpg-agent pass gettext apt-transport-https ca-certificates software-properties-common dos2unix ansifilter bsdmainutils links ripgrep ranger file
+RUN apt install -y dnsutils net-tools iputils-ping traceroute
+RUN apt install -y fzf fdupes ncdu mc iperf3 htop
+RUN apt install -y openssh-server openssh-client #openrc
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose
+RUN apt install -y locales && locale-gen en_US.UTF-8
+# RUN apt install -y ansible
+## Various runtimes/languages
+# RUN apt install -y default-jdk
+# RUN apt install -y python3 python3-pip python3-ipykernel python3-pandas python3-venv
+# RUN apt install -y php-cli
+## NodeJS
+# RUN curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+# RUN apt update && apt install -y nodejs
+
+WORKDIR /tmp/download
+RUN curl -s -o awscliv2.zip "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" && unzip -q awscliv2.zip && ./aws/install
+RUN curl -s -o ssm-plugin.deb "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" && dpkg -i ssm-plugin.deb
+RUN curl -s -o eksctl.tgz -L "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_linux_amd64.tar.gz" && tar -zxf eksctl.tgz -C /usr/local/bin/
+RUN curl -s -o /usr/local/bin/docker-credential-ecr-login -L "https://amazon-ecr-credential-helper-releases.s3.us-east-2.amazonaws.com/${VERSION_AWS_ECR_HELPER}/linux-amd64/docker-credential-ecr-login"
+RUN curl -s -o /usr/local/bin/kubectl -L "https://dl.k8s.io/release/$(curl -s -L https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" 
+RUN curl -s -o aws-sam-cli.zip -L "https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip" && unzip aws-sam-cli.zip -d sam-installation && sam-installation/install
+RUN curl -s -o get_helm.sh -L "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3" && chmod 700 get_helm.sh && ./get_helm.sh
+RUN curl -s -o k9s.deb -L "https://github.com/derailed/k9s/releases/download/v${VERSION_K9S}/k9s_linux_amd64.deb" && sudo dpkg -i k9s.deb
+RUN curl -s -o gopass.deb -L "https://github.com/gopasspw/gopass/releases/download/v${VERSION_GOPASS}/gopass_${VERSION_GOPASS}_linux_amd64.deb" && sudo dpkg -i gopass.deb
+RUN curl -s -o /tmp/neovim.tgz -L "https://github.com/neovim/neovim/releases/download/v${VERSION_NEOVIM}/nvim-linux-x86_64.tar.gz" && sudo tar -zxf /tmp/neovim.tgz -C /opt/ && sudo ln -sf /opt/nvim-linux64/bin/nvim /usr/local/bin/
+RUN curl -s "https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh" | bash
+RUN APP=fzf; curl -s -o $APP.tgz -L "https://github.com/junegunn/fzf/releases/download/v${VERSION_FZF}/fzf-${VERSION_FZF}-linux_amd64.tar.gz" && tar -zxf $APP.tgz -C /usr/local/bin
+#RUN APP=pup; curl -s -o $APP.zip -L "https://github.com/ericchiang/pup/releases/download/v0.4.0/pup_v0.4.0_linux_amd64.zip" && unzip $APP.zip && sudo install $APP /usr/local/bin/
+
+# If user already exists in the system with the same USER_ID, change the existing user's UID and GID to 1999
+RUN USER_COLLISION=$(getent passwd "$USER_UID" | awk -F: '{print $1}') && if [ -n "$USER_COLLISION" ]; then usermod -u 1999 $USER_COLLISION && groupmod -g 1999 $USER_COLLISION; fi
+# If there is a group with the GID of HOST_DOCKER_GID make room for proper docker group by changing the existing GID to 1998
+RUN DOCKER_GROUP_COLLISION=$(getent group "$HOST_DOCKER_GID" | awk -F: '{print $1}') && if [ -n "$DOCKER_GROUP_COLLISION" ] && [ "$DOCKER_GROUP_COLLISION" != "docker" ]; then groupmod -g 1998 "$DOCKER_GROUP_COLLISION"; fi
+# If there is a group with name="docker" and GID is different than HOST_DOCKER_GID, change the GID to HOST_DOCKER_GID
+RUN DOCKER_GROUP_COLLISION=$(getent group docker | awk -F: '{print $3}') && if [ -n "$DOCKER_GROUP_COLLISION" ] && [ "$DOCKER_GROUP_COLLISION" != "$HOST_DOCKER_GID" ]; then groupmod -g $HOST_DOCKER_GID docker; fi
+RUN useradd -u ${USER_UID} -d /home/${USERNAME} -s /bin/bash -m -k /noskel "$USERNAME"
+RUN if [ -z "$(getent group docker)" ]; then groupadd -g $HOST_DOCKER_GID docker; fi
+RUN usermod -aG docker $USERNAME
+RUN usermod -aG sudo $USERNAME
+
+RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+RUN ssh-keygen -A 
+# RUN openrc default && rc-update add sshd
+
+WORKDIR /home/$USERNAME
+USER $USERNAME 
+RUN git clone --depth=1 https://github.com/tfutils/tfenv.git ~/.tfenv && ~/.tfenv/bin/tfenv install ${VERSION_TERRAFORM} && ~/.tfenv/bin/tfenv use ${VERSION_TERRAFORM} 
+RUN KEEP_ZSHRC=true; CHSH=true; curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh | sh
+RUN git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+RUN git clone https://github.com/jeffreytse/zsh-vi-mode ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-vi-mode
+RUN git clone --depth 1 https://github.com/AstroNvim/template ~/.config/nvim && rm -rf ~/.config/nvim/.git
+RUN rm ~/.screenrc ~/.zshrc || true
+
+USER root
+RUN install "${TMP_BIN}/*" /usr/local/bin/ || true
+RUN chmod -R 755 /usr/local/bin/
+RUN mkdir -p /run/sshd
+
+RUN rm -fr /tmp/*
+
+# CMD ["/bin/bash"]
+# Start entrypoint and enter shell to hang the container
+ENTRYPOINT ["sleep", "infinity"]
+
+WORKDIR /workspaces
+ENV USERNAME=$USERNAME

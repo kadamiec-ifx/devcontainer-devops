@@ -1,0 +1,14 @@
+# Exceptions
+!.gitkeep
+
+# directories
+.mount/dotfiles_priv/
+
+# just-in-case
+**/.aws
+**/.ssh
+**/.terraform.d
+**/.bash_history
+**/.veracode
+**/*private*
+**/.*_history

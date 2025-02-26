@@ -1,0 +1,78 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/docker-in-docker
+// Variables reference: https://code.visualstudio.com/docs/editor/variables-reference
+/*
+cat << EOF >> ~/.profile
+export UID
+export USERNAME=\$USER
+export DOCKER_GID=\$(getent group "docker" | awk -F: '{print \$3}')
+EOF
+
+*/
+{
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	// "image": "mcr.microsoft.com/devcontainers/base:bullseye",
+	// "image": "mcr.microsoft.com/devcontainers/base:0-alpine-3.16",
+
+	"name": "DevCont",
+	"containerUser": "${localEnv:USERNAME}",	// MAKE SURE THIS IS Provided by .profile (diff windows vs linux)
+	"build": { 
+		"dockerfile": "Dockerfile.ubuntu",
+		"context": "../",
+		"args": {
+			// prepare .profile needs to export it first on LINUX (See in header)
+			"USERNAME": "${localEnv:USERNAME}",			// must ne the same as `containerUser` above
+			"USER_UID": "${localEnv:UID}",				// in WSL/remote host: `id`
+			"HOST_DOCKER_GID": "${localEnv:DOCKER_GID}"	// in WSL/remote host:  `getent group docker`
+		}
+	},
+	// "dockerComposeFile": "docker-compose.yml",
+	// "privileged": true 
+	// "workspaceFolder": "/workspaces/<subfolder>",
+	// "runArgs": [ "--env-file", ".devcontainer/devcontainer.env" ]
+	// "containerEnv": {},
+	// "remoteEnv": { },
+	"shutdownAction": "none",	// keep container up after VSCode is closed
+	"mounts": [
+		{
+			"source": "/var/run/docker.sock",
+			"target": "/var/run/docker.sock",
+			"type": "bind"
+		},
+		{
+			"source": "${localWorkspaceFolder}/.devcontainer/.mount", // ${localEnv:HOME}
+			"target": "/home/${localEnv:USERNAME}/.mount",
+			"type": "bind"
+		}
+	],
+	"forwardPorts": [
+		22
+	],
+	"postCreateCommand": {
+		"dotfiles-stow": "stow -d ~/.mount dotfiles",
+		"dotfiles-stow-priv": "stow -d ~/.mount --adopt dotfiles_priv",
+		"gopass-stow-root": "mkdir -p ~/.local/share/gopass/stores && stow -d ~/.mount/dotfiles_priv -t ~/.local/share/gopass/stores gopass_store"
+		// "docker-socket-permissions": "sudo chgrp docker /var/run/docker.sock",
+		// Managed via .mount/dotfiles_priv/.gitconfig
+		// , "git-config-clrf": "git config --global core.autocrlf input"
+		// , "git-config-upstream": "git config --global push.default upstream"
+		// , "git-config-push-auto": "git config --global push.autoSetupRemote true"
+	},
+
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"vscode-icons-team.vscode-icons",
+				"EditorConfig.EditorConfig",
+				"redhat.vscode-yaml",
+				"vscodevim.vim",
+				"BriteSnow.vscode-toggle-quotes",
+				"donjayamanne.githistory",
+				"codeandstuff.vscode-navigate-edit-history",
+				"ms-azuretools.vscode-docker",
+				"hashicorp.terraform",
+				"github.vscode-github-actions"
+			]
+		}
+	}
+}
