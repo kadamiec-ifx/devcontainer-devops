@@ -32,10 +32,10 @@ git clone --recurse-submodules git@github.com:kadamiec-ifx/vscode-devcontainer.g
 cd /workWSL/devops
 
 # Dotfiles are managed as part of the solution with stow, but they can be also managed with VSCode settings
+# done in devcontainer.json also
 cd .devcontainer
 DOTFILESDIR="./.mount/dotfiles_priv"
 mkdir -p $DOTFILESDIR/.aws
-mkdir -p $DOTFILESDIR/.terraform.d
 mkdir -p $DOTFILESDIR/.kube
 mkdir -p $DOTFILESDIR/gopass_store
 touch $DOTFILESDIR/.bash_history
