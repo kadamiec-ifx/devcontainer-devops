@@ -49,7 +49,8 @@ EOF
 		22
 	],
 	"postCreateCommand": {
-		"dotfiles-priv-create": "DF=~/.mount/dotfiles_priv; mkdir -p $DF/.aws $DF/.kube $DF/gopass_store; touch $DF/.bash_history $DF/.zsh_history",
+		// TODO move this logic to .bash_aliases and run only the function from here
+		"dotfiles-priv-create": "DF=~/.mount/dotfiles_priv; mkdir -p $DF/.aws $DF/.kube $DF/.terraform.d $DF/gopass_store; touch $DF/.bash_history $DF/.zsh_history",
 		"dotfiles-stow": "stow -d ~/.mount dotfiles",
 		"dotfiles-stow-priv": "stow -d ~/.mount --adopt dotfiles_priv",
 		"gopass-stow-root": "mkdir -p ~/.local/share/gopass/stores && stow -d ~/.mount/dotfiles_priv -t ~/.local/share/gopass/stores gopass_store"
@@ -63,16 +64,16 @@ EOF
 	"customizations": {
 		"vscode": {
 			"extensions": [
+				"hashicorp.terraform",
 				"vscode-icons-team.vscode-icons",
 				"EditorConfig.EditorConfig",
 				"redhat.vscode-yaml",
+				"github.vscode-github-actions",
 				"vscodevim.vim",
-				"BriteSnow.vscode-toggle-quotes",
+				"ms-azuretools.vscode-docker",
 				"donjayamanne.githistory",
 				"codeandstuff.vscode-navigate-edit-history",
-				"ms-azuretools.vscode-docker",
-				"hashicorp.terraform",
-				"github.vscode-github-actions"
+				"BriteSnow.vscode-toggle-quotes"
 			]
 		}
 	}
